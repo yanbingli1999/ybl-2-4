@@ -8,7 +8,8 @@ export function saveGame(
   orders: Order[],
   incomeRecords: IncomeRecord[],
   gameTime: number,
-  map: MapData
+  map: MapData,
+  plannedPath: { x: number; y: number }[]
 ): boolean {
   try {
     const save: GameSave = {
@@ -21,6 +22,7 @@ export function saveGame(
       incomeRecords,
       gameTime,
       map,
+      plannedPath,
     };
 
     const json = JSON.stringify(save, null, 2);
@@ -46,6 +48,10 @@ export function loadGame(): GameSave | null {
 
     if (save.version !== SAVE_VERSION) {
       console.warn('Save version mismatch, may cause issues');
+    }
+
+    if (!save.plannedPath) {
+      save.plannedPath = [];
     }
 
     return save;

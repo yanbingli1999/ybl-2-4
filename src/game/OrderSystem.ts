@@ -243,7 +243,7 @@ export function calculateTailPaymentRetained(order: Order): number {
   let retained = 1.0;
   for (const point of order.deliveryPoints) {
     if (point.delivered) {
-      retained -= point.tailPaymentRatio * (1 - point.complaintProbability);
+      retained -= point.tailPaymentRatio * point.complaintProbability;
     } else if (point.skipped) {
       retained -= point.tailPaymentRatio;
     } else {

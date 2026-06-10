@@ -151,6 +151,7 @@ export interface GameSave {
   incomeRecords: IncomeRecord[];
   gameTime: number;
   map: MapData;
+  plannedPath: Position[];
 }
 
 export type GameAction =
