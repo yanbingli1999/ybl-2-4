@@ -185,7 +185,7 @@ export default function GameMap() {
 
     const drawOrderLocations = (ctx: CanvasRenderingContext2D) => {
       orders.forEach((order) => {
-        if (order.status === 'available') {
+        if (order.status === 'available' && !order.isGroupBuy) {
           const pulse = Math.sin(timeRef.current * 2) * 0.5 + 0.5;
           ctx.beginPath();
           ctx.arc(order.pickupLocation.x, order.pickupLocation.y, 15 + pulse * 5, 0, Math.PI * 2);
@@ -204,6 +204,46 @@ export default function GameMap() {
           ctx.textAlign = 'center';
           ctx.textBaseline = 'middle';
           ctx.fillText('📦', order.pickupLocation.x, order.pickupLocation.y);
+        }
+
+        if (order.status === 'available' && order.isGroupBuy) {
+          const pulse = Math.sin(timeRef.current * 2) * 0.5 + 0.5;
+          ctx.beginPath();
+          ctx.arc(order.pickupLocation.x, order.pickupLocation.y, 18 + pulse * 6, 0, Math.PI * 2);
+          ctx.fillStyle = `rgba(155, 89, 182, ${0.2 + pulse * 0.2})`;
+          ctx.fill();
+          ctx.beginPath();
+          ctx.arc(order.pickupLocation.x, order.pickupLocation.y, 14, 0, Math.PI * 2);
+          ctx.fillStyle = 'rgba(155, 89, 182, 0.4)';
+          ctx.fill();
+          ctx.strokeStyle = '#9b59b6';
+          ctx.lineWidth = 2;
+          ctx.stroke();
+
+          ctx.fillStyle = '#9b59b6';
+          ctx.font = 'bold 18px VT323';
+          ctx.textAlign = 'center';
+          ctx.textBaseline = 'middle';
+          ctx.fillText('🏘️', order.pickupLocation.x, order.pickupLocation.y);
+
+          ctx.fillStyle = '#9b59b6';
+          ctx.font = 'bold 10px VT323';
+          ctx.fillText('团购', order.pickupLocation.x, order.pickupLocation.y - 26);
+
+          order.deliveryPoints.forEach((point, idx) => {
+            if (point.delivered || point.skipped) return;
+            const pp = Math.sin(timeRef.current * 2 + idx * 0.7) * 0.5 + 0.5;
+            ctx.beginPath();
+            ctx.arc(point.x, point.y, 10 + pp * 3, 0, Math.PI * 2);
+            ctx.fillStyle = `rgba(155, 89, 182, ${0.15 + pp * 0.15})`;
+            ctx.fill();
+            ctx.strokeStyle = 'rgba(155, 89, 182, 0.4)';
+            ctx.lineWidth = 1;
+            ctx.stroke();
+            ctx.fillStyle = 'rgba(155, 89, 182, 0.7)';
+            ctx.font = '8px VT323';
+            ctx.fillText(point.name, point.x, point.y + 18);
+          });
         }
       });
 
@@ -265,6 +305,107 @@ export default function GameMap() {
           ctx.fillStyle = '#ff4757';
           ctx.font = 'bold 12px VT323';
           ctx.fillText(currentOrder.deliveryLocation.name, currentOrder.deliveryLocation.x, currentOrder.deliveryLocation.y - 32);
+        }
+
+        if (currentOrder.status === 'group_delivering' && currentOrder.isGroupBuy) {
+          currentOrder.deliveryPoints.forEach((point, idx) => {
+            if (point.delivered) {
+              ctx.beginPath();
+              ctx.arc(point.x, point.y, 12, 0, Math.PI * 2);
+              ctx.fillStyle = 'rgba(46, 213, 115, 0.3)';
+              ctx.fill();
+              ctx.strokeStyle = '#2ed573';
+              ctx.lineWidth = 2;
+              ctx.stroke();
+
+              ctx.fillStyle = '#2ed573';
+              ctx.font = 'bold 16px VT323';
+              ctx.textAlign = 'center';
+              ctx.textBaseline = 'middle';
+              ctx.fillText('✅', point.x, point.y);
+
+              ctx.fillStyle = '#2ed573';
+              ctx.font = '9px VT323';
+              ctx.fillText(point.name, point.x, point.y + 20);
+            } else if (point.skipped) {
+              ctx.beginPath();
+              ctx.arc(point.x, point.y, 12, 0, Math.PI * 2);
+              ctx.fillStyle = 'rgba(255, 71, 87, 0.2)';
+              ctx.fill();
+              ctx.strokeStyle = 'rgba(255, 71, 87, 0.5)';
+              ctx.lineWidth = 1;
+              ctx.stroke();
+
+              ctx.fillStyle = 'rgba(255, 71, 87, 0.7)';
+              ctx.font = 'bold 16px VT323';
+              ctx.textAlign = 'center';
+              ctx.textBaseline = 'middle';
+              ctx.fillText('❌', point.x, point.y);
+
+              ctx.fillStyle = 'rgba(255, 71, 87, 0.7)';
+              ctx.font = '9px VT323';
+              ctx.fillText(point.name, point.x, point.y + 20);
+            } else if (idx === currentOrder.currentDeliveryIndex) {
+              for (let i = 3; i > 0; i--) {
+                ctx.beginPath();
+                ctx.arc(point.x, point.y, 18 + i * 7 + pulse * 5, 0, Math.PI * 2);
+                ctx.strokeStyle = `rgba(155, 89, 182, ${0.3 / i})`;
+                ctx.lineWidth = 3;
+                ctx.stroke();
+              }
+              ctx.beginPath();
+              ctx.arc(point.x, point.y, 20, 0, Math.PI * 2);
+              ctx.fillStyle = `rgba(155, 89, 182, ${0.4 + pulse * 0.2})`;
+              ctx.fill();
+              ctx.strokeStyle = '#9b59b6';
+              ctx.lineWidth = 3;
+              ctx.setLineDash([5, 5]);
+              ctx.stroke();
+              ctx.setLineDash([]);
+
+              ctx.fillStyle = '#9b59b6';
+              ctx.font = 'bold 20px VT323';
+              ctx.textAlign = 'center';
+              ctx.textBaseline = 'middle';
+              ctx.fillText('🏘️', point.x, point.y);
+
+              ctx.fillStyle = '#9b59b6';
+              ctx.font = 'bold 11px VT323';
+              ctx.fillText(point.name, point.x, point.y - 30);
+
+              const patienceRatio = point.patience / point.maxPatience;
+              const barWidth = 40;
+              const barHeight = 4;
+              const barX = point.x - barWidth / 2;
+              const barY = point.y + 28;
+              ctx.fillStyle = 'rgba(0, 0, 0, 0.5)';
+              ctx.fillRect(barX, barY, barWidth, barHeight);
+              const patienceColor = patienceRatio > 0.5 ? '#2ed573' : patienceRatio > 0.25 ? '#ffcc4d' : '#ff4757';
+              ctx.fillStyle = patienceColor;
+              ctx.fillRect(barX, barY, barWidth * patienceRatio, barHeight);
+            } else {
+              const pp = Math.sin(timeRef.current * 2 + idx * 0.7) * 0.5 + 0.5;
+              ctx.beginPath();
+              ctx.arc(point.x, point.y, 12 + pp * 3, 0, Math.PI * 2);
+              ctx.fillStyle = `rgba(155, 89, 182, ${0.15 + pp * 0.1})`;
+              ctx.fill();
+              ctx.strokeStyle = 'rgba(155, 89, 182, 0.4)';
+              ctx.lineWidth = 1;
+              ctx.setLineDash([3, 3]);
+              ctx.stroke();
+              ctx.setLineDash([]);
+
+              ctx.fillStyle = 'rgba(155, 89, 182, 0.7)';
+              ctx.font = 'bold 14px VT323';
+              ctx.textAlign = 'center';
+              ctx.textBaseline = 'middle';
+              ctx.fillText(`${idx + 1}`, point.x, point.y);
+
+              ctx.fillStyle = 'rgba(155, 89, 182, 0.6)';
+              ctx.font = '9px VT323';
+              ctx.fillText(point.name, point.x, point.y + 20);
+            }
+          });
         }
       }
     };

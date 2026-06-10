@@ -64,6 +64,25 @@ export const LOCATION_NAMES = [
   '咖啡店', '花店', '超市', '餐厅', '银行',
 ];
 
+export const COMMUNITY_NAMES = [
+  '翠湖花园', '锦绣家园', '阳光新城', '碧水湾', '金色时代',
+  '绿洲花苑', '龙腾小区', '望江名居', '紫荆苑', '和美家园',
+  '星辰社区', '百合雅苑', '枫叶小镇', '晨曦花园', '云顶山庄',
+];
+
+export const TEAM_LEADER_NAMES = [
+  '团长王姐', '团长李哥', '团长张阿姨', '团长赵叔', '团长陈姐',
+];
+
+export const GROUP_BUY_MIN_POINTS = 3;
+export const GROUP_BUY_MAX_POINTS = 6;
+export const GROUP_BUY_MIN_REWARD = 80;
+export const GROUP_BUY_MAX_REWARD = 300;
+export const GROUP_BUY_PATIENCE_DRAIN_RATE = 0.8;
+export const GROUP_BUY_SKIP_COMPLAINT_INCREASE = 0.25;
+export const GROUP_BUY_BASE_COMPLAINT_PROBABILITY = 0.05;
+export const GROUP_BUY_LATE_PATIENCE_PENALTY = 2.0;
+
 export const BUILDING_NAMES = [
   '居民区', '商业中心', '工厂', '仓库', '办公楼',
   '酒店', '医院', '学校', '公园', '停车场',

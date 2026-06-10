@@ -1,6 +1,6 @@
 import { useGameStore } from '../store/gameStore';
 import { formatMoney, getRatingStars } from '../game/EconomySystem';
-import { X, Star, TrendingUp, TrendingDown, Award } from 'lucide-react';
+import { X, Star, TrendingUp, TrendingDown, Award, Users } from 'lucide-react';
 
 export default function SettlementModal() {
   const dispatch = useGameStore((state) => state.dispatch);
@@ -15,7 +15,9 @@ export default function SettlementModal() {
     <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50">
       <div className="game-card p-6 w-96 animate-[fadeIn_0.3s_ease-out]">
         <div className="flex justify-between items-start mb-4">
-          <h3 className="font-pixel text-lg text-game-neon glow-text">订单结算</h3>
+          <h3 className="font-pixel text-lg text-game-neon glow-text">
+            {lastSettlement.isGroupBuy ? '🏘️ 团购订单结算' : '订单结算'}
+          </h3>
           <button
             onClick={() => dispatch({ type: 'CLOSE_SETTLEMENT' })}
             className="text-gray-400 hover:text-white transition-colors"
@@ -23,6 +25,35 @@ export default function SettlementModal() {
             <X size={20} />
           </button>
         </div>
+
+        {lastSettlement.isGroupBuy && (
+          <div className="mb-4 bg-purple-500/10 border border-purple-400/30 rounded p-3 space-y-2">
+            <div className="flex items-center gap-2">
+              <Users size={16} className="text-purple-400" />
+              <span className="font-pixel text-xs text-purple-400">团购配送统计</span>
+            </div>
+            <div className="flex justify-between text-xs font-retro">
+              <span className="text-gray-400">签收率</span>
+              <span className="text-game-success">{lastSettlement.deliveredCount}/{lastSettlement.totalDeliveryPoints} 小区</span>
+            </div>
+            <div className="flex justify-between text-xs font-retro">
+              <span className="text-gray-400">尾款保住</span>
+              <span className={`${
+                lastSettlement.tailPaymentRetained > 0.7 ? 'text-game-success' :
+                lastSettlement.tailPaymentRetained > 0.4 ? 'text-game-streetLight' :
+                'text-game-danger'
+              }`}>
+                {Math.round(lastSettlement.tailPaymentRetained * 100)}%
+              </span>
+            </div>
+            {lastSettlement.complaintCount > 0 && (
+              <div className="flex justify-between text-xs font-retro">
+                <span className="text-gray-400">投诉数</span>
+                <span className="text-game-danger">{lastSettlement.complaintCount} 起</span>
+              </div>
+            )}
+          </div>
+        )}
 
         <div className="text-center mb-6">
           <div className="flex justify-center gap-1 mb-2">
@@ -41,8 +72,8 @@ export default function SettlementModal() {
 
         <div className="space-y-3 mb-6">
           {details.map((detail, index) => {
-            const isPositive = detail.includes('+') || detail.includes('奖励') || detail.includes('基础');
-            const isNegative = detail.includes('-') || detail.includes('扣款') || detail.includes('迟到');
+            const isPositive = detail.includes('+') || detail.includes('奖励') || detail.includes('基础') || detail.includes('保住');
+            const isNegative = detail.includes('-') || detail.includes('扣款') || detail.includes('迟到') || detail.includes('跳过') || detail.includes('投诉');
 
             return (
               <div

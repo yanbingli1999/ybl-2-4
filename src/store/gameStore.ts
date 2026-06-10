@@ -1,7 +1,7 @@
 import { create } from 'zustand';
 import type { GameState, GameAction, GameSave, Order } from '../game/types';
 import { generateMapData, findPath } from '../game/mapData';
-import { generateOrder, updateOrderDeadlines, isAtLocation, canAcceptOrder } from '../game/OrderSystem';
+import { generateOrder, generateGroupBuyOrder, updateOrderDeadlines, isAtLocation, canAcceptOrder, applySkipToOrder, getCurrentDeliveryPoint, calculateTailPaymentRetained } from '../game/OrderSystem';
 import { updateWeather, createInitialWeather } from '../game/WeatherSystem';
 import {
   moveVehicle,
@@ -12,7 +12,7 @@ import {
   isNearChargingStation,
   isNearRepairShop,
 } from '../game/VehicleSystem';
-import { calculateSettlement } from '../game/EconomySystem';
+import { calculateSettlement, calculateGroupBuySettlement } from '../game/EconomySystem';
 import { saveGame, loadGame } from '../game/Storage';
 import {
   PLAYER_START,
@@ -120,7 +120,29 @@ function gameReducer(state: GameState, action: GameAction): GameState {
 
       if (!isAtLocation(state.player.position, order.pickupLocation, 50)) return state;
 
-      const path = findPath(
+      let path: Array<{ x: number; y: number }> = [];
+
+      if (order.isGroupBuy && order.deliveryPoints.length > 0) {
+        const firstPoint = order.deliveryPoints[0];
+        path = findPath(
+          state.vehicle.position.x,
+          state.vehicle.position.y,
+          firstPoint.x,
+          firstPoint.y,
+          state.map.roads,
+          state.map.gridSize
+        );
+
+        return {
+          ...state,
+          orders: state.orders.map((o) =>
+            o.id === action.orderId ? { ...o, status: 'group_delivering' as const, currentDeliveryIndex: 0 } : o
+          ),
+          plannedPath: path,
+        };
+      }
+
+      path = findPath(
         state.vehicle.position.x,
         state.vehicle.position.y,
         order.deliveryLocation.x,
@@ -165,6 +187,115 @@ function gameReducer(state: GameState, action: GameAction): GameState {
       };
     }
 
+    case 'DELIVER_GROUP_POINT': {
+      const order = state.orders.find((o) => o.id === action.orderId);
+      if (!order || order.status !== 'group_delivering') return state;
+
+      const currentPoint = getCurrentDeliveryPoint(order);
+      if (!currentPoint) return state;
+
+      if (!isAtLocation(state.player.position, { x: currentPoint.x, y: currentPoint.y }, 50)) return state;
+
+      const updatedPoints = order.deliveryPoints.map((p, idx) => {
+        if (idx === order.currentDeliveryIndex) {
+          return { ...p, delivered: true, complaintProbability: p.patience > 0 ? p.complaintProbability : Math.min(1, p.complaintProbability + 0.3) };
+        }
+        return p;
+      });
+
+      const newIndex = order.currentDeliveryIndex + 1;
+      const allDelivered = newIndex >= order.deliveryPoints.length;
+
+      if (allDelivered) {
+        const completedOrder = { ...order, deliveryPoints: updatedPoints, currentDeliveryIndex: newIndex, status: 'completed' as const };
+        const settlement = calculateGroupBuySettlement(completedOrder, state.player.stamina);
+
+        return {
+          ...state,
+          orders: state.orders.map((o) =>
+            o.id === action.orderId ? completedOrder : o
+          ),
+          player: {
+            ...state.player,
+            money: state.player.money + settlement.record.finalAmount,
+            currentOrderId: null,
+            completedOrders: state.player.completedOrders + 1,
+            totalRating: state.player.totalRating + settlement.rating,
+          },
+          incomeRecords: [...state.incomeRecords, settlement.record],
+          showSettlement: true,
+          lastSettlement: settlement.record,
+          plannedPath: [],
+        };
+      }
+
+      const nextPoint = updatedPoints[newIndex];
+      const path = findPath(
+        state.vehicle.position.x,
+        state.vehicle.position.y,
+        nextPoint.x,
+        nextPoint.y,
+        state.map.roads,
+        state.map.gridSize
+      );
+
+      return {
+        ...state,
+        orders: state.orders.map((o) =>
+          o.id === action.orderId ? { ...o, deliveryPoints: updatedPoints, currentDeliveryIndex: newIndex } : o
+        ),
+        plannedPath: path,
+      };
+    }
+
+    case 'SKIP_GROUP_POINT': {
+      const order = state.orders.find((o) => o.id === action.orderId);
+      if (!order || order.status !== 'group_delivering') return state;
+
+      const updatedOrder = applySkipToOrder(order);
+      const newIndex = updatedOrder.currentDeliveryIndex;
+      const allDone = newIndex >= order.deliveryPoints.length;
+
+      if (allDone) {
+        const settlement = calculateGroupBuySettlement(updatedOrder, state.player.stamina);
+        return {
+          ...state,
+          orders: state.orders.map((o) =>
+            o.id === action.orderId ? { ...updatedOrder, status: 'completed' as const } : o
+          ),
+          player: {
+            ...state.player,
+            money: state.player.money + settlement.record.finalAmount,
+            currentOrderId: null,
+            completedOrders: state.player.completedOrders + 1,
+            totalRating: state.player.totalRating + settlement.rating,
+          },
+          incomeRecords: [...state.incomeRecords, settlement.record],
+          showSettlement: true,
+          lastSettlement: settlement.record,
+          plannedPath: [],
+        };
+      }
+
+      const nextPoint = updatedOrder.deliveryPoints[newIndex];
+      const path = findPath(
+        state.vehicle.position.x,
+        state.vehicle.position.y,
+        nextPoint.x,
+        nextPoint.y,
+        state.map.roads,
+        state.map.gridSize
+      );
+
+      return {
+        ...state,
+        orders: state.orders.map((o) =>
+          o.id === action.orderId ? updatedOrder : o
+        ),
+        plannedPath: path,
+      };
+    }
+
     case 'START_CHARGING': {
       if (!isNearChargingStation(state.player.position, state.map.chargingStations)) return state;
       return { ...state, isCharging: true, isRepairing: false, isResting: false };
@@ -194,6 +325,18 @@ function gameReducer(state: GameState, action: GameAction): GameState {
     case 'GENERATE_ORDERS': {
       const availableOrders = state.orders.filter((o) => o.status === 'available');
       if (availableOrders.length >= MAX_AVAILABLE_ORDERS) return state;
+
+      if (Math.random() < 0.3) {
+        const groupOrder = generateGroupBuyOrder(
+          state.map,
+          state.player.position,
+          state.gameTime,
+          state.orders
+        );
+        if (groupOrder) {
+          return { ...state, orders: [...state.orders, groupOrder] };
+        }
+      }
 
       const newOrder = generateOrder(
         state.map,
@@ -267,6 +410,12 @@ function gameReducer(state: GameState, action: GameAction): GameState {
       if (currentOrder && (currentOrder.status === 'pickedup' || currentOrder.status === 'delivering')) {
         if (isAtLocation(newState.player.position, currentOrder.deliveryLocation, 50)) {
           newState = gameReducer(newState, { type: 'DELIVER_ORDER', orderId: currentOrder.id });
+        }
+      }
+      if (currentOrder && currentOrder.status === 'group_delivering') {
+        const currentPoint = getCurrentDeliveryPoint(currentOrder);
+        if (currentPoint && isAtLocation(newState.player.position, { x: currentPoint.x, y: currentPoint.y }, 50)) {
+          newState = gameReducer(newState, { type: 'DELIVER_GROUP_POINT', orderId: currentOrder.id });
         }
       }
 

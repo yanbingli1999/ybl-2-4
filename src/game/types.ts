@@ -27,7 +27,20 @@ export interface VehicleState {
   direction: 'up' | 'down' | 'left' | 'right';
 }
 
-export type OrderStatus = 'available' | 'accepted' | 'pickedup' | 'delivering' | 'completed' | 'failed';
+export type OrderStatus = 'available' | 'accepted' | 'pickedup' | 'delivering' | 'completed' | 'failed' | 'group_delivering';
+
+export interface DeliveryPoint {
+  id: string;
+  name: string;
+  x: number;
+  y: number;
+  patience: number;
+  maxPatience: number;
+  tailPaymentRatio: number;
+  delivered: boolean;
+  complaintProbability: number;
+  skipped: boolean;
+}
 
 export interface Order {
   id: string;
@@ -40,6 +53,10 @@ export interface Order {
   customerUrgency: number;
   distance: number;
   createdAt: number;
+  isGroupBuy: boolean;
+  deliveryPoints: DeliveryPoint[];
+  currentDeliveryIndex: number;
+  skipCount: number;
 }
 
 export type WeatherType = 'sunny' | 'cloudy' | 'rainy' | 'heavy_rain' | 'storm';
@@ -99,6 +116,11 @@ export interface IncomeRecord {
   rating: number;
   completedAt: number;
   details: string;
+  isGroupBuy: boolean;
+  deliveredCount: number;
+  totalDeliveryPoints: number;
+  tailPaymentRetained: number;
+  complaintCount: number;
 }
 
 export interface GameState {
@@ -136,6 +158,8 @@ export type GameAction =
   | { type: 'ACCEPT_ORDER'; orderId: string }
   | { type: 'PICKUP_ORDER'; orderId: string }
   | { type: 'DELIVER_ORDER'; orderId: string }
+  | { type: 'DELIVER_GROUP_POINT'; orderId: string }
+  | { type: 'SKIP_GROUP_POINT'; orderId: string }
   | { type: 'START_CHARGING' }
   | { type: 'STOP_CHARGING' }
   | { type: 'START_REPAIRING' }
