@@ -465,30 +465,12 @@ function gameReducer(state: GameState, action: GameAction): GameState {
 
     case 'LOAD_GAME': {
       const save = action.save;
-      const restoredPath: Array<{ x: number; y: number }> = save.plannedPath && save.plannedPath.length > 0
-        ? save.plannedPath
-        : [];
-
-      if (restoredPath.length > 0) {
-        return {
-          ...createInitialState(),
-          player: save.player,
-          vehicle: save.vehicle,
-          weather: save.weather,
-          orders: save.orders,
-          incomeRecords: save.incomeRecords,
-          gameTime: save.gameTime,
-          map: save.map,
-          plannedPath: restoredPath,
-        };
-      }
-
       const currentOrder = save.orders.find((o) => o.id === save.player.currentOrderId);
-      let recomputedPath: Array<{ x: number; y: number }> = [];
+      let plannedPath: Array<{ x: number; y: number }> = [];
 
       if (currentOrder) {
         if (currentOrder.status === 'accepted') {
-          recomputedPath = findPath(
+          plannedPath = findPath(
             save.vehicle.position.x,
             save.vehicle.position.y,
             currentOrder.pickupLocation.x,
@@ -497,7 +479,7 @@ function gameReducer(state: GameState, action: GameAction): GameState {
             save.map.gridSize
           );
         } else if (currentOrder.status === 'pickedup' || currentOrder.status === 'delivering') {
-          recomputedPath = findPath(
+          plannedPath = findPath(
             save.vehicle.position.x,
             save.vehicle.position.y,
             currentOrder.deliveryLocation.x,
@@ -508,7 +490,7 @@ function gameReducer(state: GameState, action: GameAction): GameState {
         } else if (currentOrder.status === 'group_delivering') {
           const pt = getCurrentDeliveryPoint(currentOrder);
           if (pt) {
-            recomputedPath = findPath(
+            plannedPath = findPath(
               save.vehicle.position.x,
               save.vehicle.position.y,
               pt.x,
@@ -529,7 +511,7 @@ function gameReducer(state: GameState, action: GameAction): GameState {
         incomeRecords: save.incomeRecords,
         gameTime: save.gameTime,
         map: save.map,
-        plannedPath: recomputedPath,
+        plannedPath,
       };
     }
 
